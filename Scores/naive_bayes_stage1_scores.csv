@@ -1,0 +1,3 @@
+stage,type,fit_prior,accuracy(%),score_standard_deviation(%),tempo(s)
+stage1,ComplementNB,False,76.74044909652534,1.8047327251431762,0.28987646102905273
+stage1,ComplementNB,True,76.74044909652534,1.8047327251431762,0.11559772491455078
