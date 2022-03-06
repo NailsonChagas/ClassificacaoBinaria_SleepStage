@@ -241,6 +241,7 @@ class Stages:
         path = f"./Features/{str(self.code)}N{str(self.night)}_{str(self.sl)}_{str(self.fs)}.csv"
         try:
             data.to_csv(path, index=False)
+            del data #adicionado para evitar vazemnto de memória
         except Exception as e:
             print(e)
         fim = time.time()
@@ -253,6 +254,7 @@ class Stages:
         pd.options.mode.use_inf_as_na = True
         novo.dropna(axis=1, how='any', thresh=(len(novo.index) - thresh_hold), inplace=True)
         novo.to_csv(f"./Features/{str(self.code)}N{str(self.night)}_{str(self.sl)}_{str(self.fs)}_noNaN_{thresh_hold}.csv", index=False)
+        del novo #adicionado para evitar vazemnto de memória
 
     def get_features(self):
         return pd.read_csv(f"./Features/{str(self.code)}N{str(self.night)}_{str(self.sl)}_{str(self.fs)}.csv")

@@ -2,9 +2,11 @@
 from SleepStageDetection.utils import preparing_for_binary_classification, balanceamento_por_classe_undersampling
 
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import CategoricalNB, ComplementNB
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import RidgeClassifier
+from sklearn.naive_bayes import ComplementNB
+from sklearn.ensemble import RandomForestClassifier, BaggingClassifier, GradientBoostingClassifier
+from sklearn.linear_model import RidgeClassifier, LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import LinearSVC
 from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
@@ -228,8 +230,10 @@ class BinaryClassification:
         # https://towardsdatascience.com/how-to-tune-a-decision-tree-f03721801680
         #criterion = ["gini", "entropy"]
         criterion = ["gini"]
-        min_samples_split = [2, 6, 10, 14, 18, 22, 26, 32, 36, 40]
-        min_samples_leaf = [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+        #min_samples_split = [2, 6, 10, 14, 18, 22, 26, 32, 36, 40]
+        #min_samples_leaf = [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+        min_samples_split = [18, 22, 26, 32, 36, 40]
+        min_samples_leaf = [16, 18, 20]
 
         dt_results = []
 
@@ -359,11 +363,12 @@ class BinaryClassification:
         cont = 0
         
         criterion_ = ["gini", "entropy"]
-        max_features_ = ['auto', 'sqrt']
+        max_features_ = ['auto'] #max_features_ = ['auto', 'sqrt']
         bootstrap_ = [True, False]
-        min_samples_split_ = [2, 5, 10]
-        min_samples_leaf_ = [1, 2, 4]
-        max_depth_ =  [10, 30, 50, 70, "None"]
+        min_samples_split_ = [5, 10] #min_samples_split_ = [2, 5, 10]
+        min_samples_leaf_ = [2, 4] #min_samples_leaf_ = [1, 2, 4]
+        max_depth_ =  ["None"] #max_depth_ =  [10, 30, 50, 70, "None"]
+
 
         dataframes_train = {
             "awake": self.train_awake, 
@@ -450,8 +455,8 @@ class BinaryClassification:
         #alpha_ = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
         #solver_ = ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga", "lbfgs"]
 
-        alpha_ = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-        solver_ = ["auto", "svd"]
+        alpha_ = [0.1, 0.2] #alpha_ = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        solver_ = ["auto"] #solver_ = ["auto", "svd"]
 
         cont = 0
 
@@ -516,9 +521,15 @@ class BinaryClassification:
         except Exception as e:
             print(e)
 
-    def __bagged_decision_tree_classifier(self, stage:str, njobs:int=4):
+    def __bagging_decision_tree_classifier(self, stage:str, njobs:int=4):
         cont = 0
         bdt_results = []
+
+        n_estimators = [10, 20, 40, 80, 160]
+        bootstrap = [True, False]
+        bootstrap_features = [True, False]
+        oob_score = [True, False]
+        warm_start = [True, False]
 
         dataframes_train = {
             "awake": self.train_awake, 
@@ -541,19 +552,362 @@ class BinaryClassification:
         X_train, y_train = self.__balance(dataframes_train[stage], "stage")
         X_test, y_test = self.__balance(dataframes_test[stage], "stage")
         
-        pass
+        for n in n_estimators:
+            for b in bootstrap:
+                for bf in bootstrap_features:
+                    for o in oob_score:
+                        for w in warm_start:
+                            print(f"Iteração: {cont}")
+                            cont += 1
+
+                            try:
+                                inicio = time.time()
+                                
+                                classifier = BaggingClassifier(
+                                    n_estimators=n,
+                                    bootstrap=b,
+                                    bootstrap_features=bf,
+                                    oob_score=o,
+                                    warm_start=w,
+                                    n_jobs=njobs
+                                )
+                                classifier.fit(X_train, y_train)
+                                scores = cross_val_score(classifier, X_test, y_test, cv = 10, n_jobs = njobs)
+
+                                fim = time.time()
+
+                                result = {
+                                    "stage": stage,
+                                    "n_estimators": n,
+                                    "bootstrap": b,
+                                    "bootstrap_features": bf,
+                                    "oob_score" : o,
+                                    "warm_start": w,       
+                                    "accuracy(%)": (scores.mean() * 100),
+                                    "score_standard_deviation(%)": (scores.std() * 100),
+                                    "tempo(s)": fim - inicio
+                                }
+                                print(result)
+                                bdt_results.append(result)
+                            except Exception as e:
+                                print(e)
+
+        try:
+            bdt_tests = pd.DataFrame(bdt_results)
+            bdt_tests.sort_values(by="accuracy(%)", ascending=False, inplace=True)
+            bdt_tests.to_csv(f"./Scores/bdtc_{stage}_scores.csv", index=False)
+        except Exception as e:
+            print(e)
 
     def __gradient_boosting_classifier(self, stage:str, njobs:int=4):
-        pass
+        cont = 0
+        gbc_results = []
+
+        loss = ["deviance", "exponential"]
+        learning_rate = [1.0, 1.5, 2.0, 4.0]
+        n_estimators = [100, 200, 400, 800]
+        criterion = ["friedman_mse", "squared_error", "mse"]
+        max_depth = [3, 6, 12, 24, 48]
+        warm_start = [True, False]
+
+        dataframes_train = {
+            "awake": self.train_awake, 
+            "stage1": self.train_stage1, 
+            "stage2": self.train_stage2, 
+            "stage3": self.train_stage3, 
+            "stage4": self.train_stage4, 
+            "stage5": self.train_rem
+        }
+
+        dataframes_test = {
+            "awake": self.test_awake, 
+            "stage1": self.test_stage1, 
+            "stage2": self.test_stage2, 
+            "stage3": self.test_stage3, 
+            "stage4": self.test_stage4, 
+            "stage5": self.test_rem
+        }
+
+        X_train, y_train = self.__balance(dataframes_train[stage], "stage")
+        X_test, y_test = self.__balance(dataframes_test[stage], "stage")
+        
+        for l in loss:
+            for lr in learning_rate:
+                for n in n_estimators:
+                    for c in criterion:
+                        for m in max_depth:
+                            for w in warm_start:
+                                print(f"Iteração: {cont}")
+                                cont += 1
+
+                                try:
+                                    inicio = time.time()
+                                    
+                                    classifier = GradientBoostingClassifier(
+                                        loss=l,
+                                        learning_rate=lr,
+                                        n_estimators=n,
+                                        criterion=c,
+                                        max_depth=m,
+                                        warm_start=w
+                                    )
+                                    classifier.fit(X_train, y_train)
+                                    scores = cross_val_score(classifier, X_test, y_test, cv = 10, n_jobs = njobs)
+
+                                    fim = time.time()
+
+                                    result = {
+                                        "stage": stage,
+                                        "loss": l,
+                                        "learning_rate": lr,
+                                        "n_estimators": n,
+                                        "criterion": c,
+                                        "max_depth": m,
+                                        "warm_start": w,   
+                                        "accuracy(%)": (scores.mean() * 100),
+                                        "score_standard_deviation(%)": (scores.std() * 100),
+                                        "tempo(s)": fim - inicio
+                                    }
+                                    print(result)
+                                    gbc_results.append(result)
+                                except Exception as e:
+                                    print(e)
+
+        try:
+            gbc_tests = pd.DataFrame(gbc_results)
+            gbc_tests.sort_values(by="accuracy(%)", ascending=False, inplace=True)
+            gbc_tests.to_csv(f"./Scores/gbc_{stage}_scores.csv", index=False)
+        except Exception as e:
+            print(e)
     
     def __logistic_regression_classifier(self, stage:str, njobs:int=4):
-        pass
+        cont = 0
+        lrc_results = []
+
+        penalty = ["l1", "l2", "elasticnet", "none"]
+        dual = [True, False]
+        C = [1.0, 1.5, 2.0]
+        fit_intercept = [True, False]
+        solver = ["newton-cg", "lbfgs", "liblinear", "sag", "lbfgs"]
+
+        dataframes_train = {
+            "awake": self.train_awake, 
+            "stage1": self.train_stage1, 
+            "stage2": self.train_stage2, 
+            "stage3": self.train_stage3, 
+            "stage4": self.train_stage4, 
+            "stage5": self.train_rem
+        }
+
+        dataframes_test = {
+            "awake": self.test_awake, 
+            "stage1": self.test_stage1, 
+            "stage2": self.test_stage2, 
+            "stage3": self.test_stage3, 
+            "stage4": self.test_stage4, 
+            "stage5": self.test_rem
+        }
+
+        X_train, y_train = self.__balance(dataframes_train[stage], "stage")
+        X_test, y_test = self.__balance(dataframes_test[stage], "stage")
+        
+        for p in penalty:
+            for d in dual:
+                for c in C:
+                    for f in fit_intercept:
+                        for s in solver:
+                            print(f"Iteração: {cont}")
+                            cont += 1
+
+                            try:
+                                inicio = time.time()
+                                
+                                classifier = LogisticRegression(
+                                    penalty = p,
+                                    dual = d,
+                                    C = c,
+                                    fit_intercept = f,
+                                    solver=solver,
+                                )
+                                classifier.fit(X_train, y_train)
+                                scores = cross_val_score(classifier, X_test, y_test, cv = 10, n_jobs = njobs)
+
+                                fim = time.time()
+
+                                result = {
+                                    "penalty": p,
+                                    "dual":d,
+                                    "C":c,
+                                    "fit_intercept":f,
+                                    "solver": solver,        
+                                    "accuracy(%)": (scores.mean() * 100),
+                                    "score_standard_deviation(%)": (scores.std() * 100),
+                                    "tempo(s)": fim - inicio
+                                }
+                                print(result)
+                                lrc_results.append(result)
+                            except Exception as e:
+                                print(e)
+
+        try:
+            lrc_tests = pd.DataFrame(lrc_results)
+            lrc_tests.sort_values(by="accuracy(%)", ascending=False, inplace=True)
+            lrc_tests.to_csv(f"./Scores/logisticRegression_{stage}_scores.csv", index=False)
+        except Exception as e:
+            print(e)
 
     def __knn_classifier(self, stage:str, njobs:int=4):
-        pass
+        cont = 0
+        knn_results = []
 
-    def __svm_classifier(self, stage:str, njobs:int=4):
-        pass
+        n_neighbors = [3, 5, 10, 20, 40, 80, 160]
+        weights = ['uniform', 'distance']
+        leaf_size = [15, 30, 60, 120]
+        p = [1, 2]
+
+        dataframes_train = {
+            "awake": self.train_awake, 
+            "stage1": self.train_stage1, 
+            "stage2": self.train_stage2, 
+            "stage3": self.train_stage3, 
+            "stage4": self.train_stage4, 
+            "stage5": self.train_rem
+        }
+
+        dataframes_test = {
+            "awake": self.test_awake, 
+            "stage1": self.test_stage1, 
+            "stage2": self.test_stage2, 
+            "stage3": self.test_stage3, 
+            "stage4": self.test_stage4, 
+            "stage5": self.test_rem
+        }
+
+        X_train, y_train = self.__balance(dataframes_train[stage], "stage")
+        X_test, y_test = self.__balance(dataframes_test[stage], "stage")
+
+        for n in n_neighbors:
+            for w in weights:
+                for l in leaf_size:
+                    for p in p:
+                        inicio = time.time()
+
+                        try:
+
+                            classifier = KNeighborsClassifier(
+                                n_neighbors = n,
+                                weights = w,
+                                leaf_size = l,
+                                p = p
+                            )
+
+                            classifier.fit(X_train, y_train)
+                            scores = cross_val_score(classifier, X_test, y_test, cv = 10, n_jobs = njobs)
+
+                            fim = time.time()
+
+                            result = {
+                                "stage": stage,
+                                "n_neighbors": n,
+                                "weights": w,   
+                                "leaf_size": l,
+                                "p": p,     
+                                "accuracy(%)": (scores.mean() * 100),
+                                "score_standard_deviation(%)": (scores.std() * 100),
+                                "tempo(s)": fim - inicio
+                            }
+                            print(result)
+                            knn_results.append(result)
+                        except Exception as e:
+                            print(e)
+        try:
+            knn_tests = pd.DataFrame(knn_results)
+            knn_tests.sort_values(by="accuracy(%)", ascending=False, inplace=True)
+            knn_tests.to_csv(f"./Scores/knn_{stage}_scores.csv", index=False)
+        except Exception as e:
+            print(e)
+
+    def __svm_linearSVC_classifier(self, stage:str, njobs:int=4):
+        cont = 0
+        svm_results = []
+
+        penalty = ["l1", "l2"]
+        loss = ["hinge", "squared_hinge"]
+        dual = [True, False]
+        C = [1.0, 1.5, 2.0]
+        fit_intercept = [True, False]
+        max_iter = [1000, 2000, 4000, 8000]
+
+        dataframes_train = {
+            "awake": self.train_awake, 
+            "stage1": self.train_stage1, 
+            "stage2": self.train_stage2, 
+            "stage3": self.train_stage3, 
+            "stage4": self.train_stage4, 
+            "stage5": self.train_rem
+        }
+
+        dataframes_test = {
+            "awake": self.test_awake, 
+            "stage1": self.test_stage1, 
+            "stage2": self.test_stage2, 
+            "stage3": self.test_stage3, 
+            "stage4": self.test_stage4, 
+            "stage5": self.test_rem
+        }
+
+        X_train, y_train = self.__balance(dataframes_train[stage], "stage")
+        X_test, y_test = self.__balance(dataframes_test[stage], "stage")
+
+        for p in penalty:
+            for l in loss:
+                for d in dual:
+                    for c in C:
+                        for f in fit_intercept:
+                            for m in max_iter:
+                                print(f"Iteração: {cont}")
+                                cont += 1
+
+                                try:
+                                    inicio = time.time()
+                                    
+                                    classifier = LinearSVC(
+                                        penalty = p,
+                                        loss = l,
+                                        dual = d,
+                                        C = c,
+                                        fit_intercept = f,
+                                        max_iter = m
+                                    )
+                                    classifier.fit(X_train, y_train)
+                                    scores = cross_val_score(classifier, X_test, y_test, cv = 10, n_jobs = njobs)
+
+                                    fim = time.time()
+
+                                    result = {
+                                        "stage": stage,
+                                        "penalty": p,
+                                        "loss": l,
+                                        "dual": d,
+                                        "C": c,
+                                        "fit_intercept": f,
+                                        "max_iter": m,      
+                                        "accuracy(%)": (scores.mean() * 100),
+                                        "score_standard_deviation(%)": (scores.std() * 100),
+                                        "tempo(s)": fim - inicio
+                                    }
+                                    print(result)
+                                    svm_results.append(result)
+                                except Exception as e:
+                                    print(e)
+
+        
+        try:
+            svm_tests = pd.DataFrame(svm_results)
+            svm_tests.sort_values(by="accuracy(%)", ascending=False, inplace=True)
+            svm_tests.to_csv(f"./Scores/linearSVC_{stage}_scores.csv", index=False)
+        except Exception as e:
+            print(e)
 
     def __deep_learning_classification(self, stage:str, njobs:int=4): #não sei como implementar
         pass
@@ -566,17 +920,42 @@ class BinaryClassification:
             "stage3", 
             "stage4", 
             "stage5"
-        ]
+        ]   
 
-        #print("--------- Naive Bayes ---------")
-        #for stage in stages:
-        #    print(f"Stage: {stage}")
-        #    self.__naive_bayes_classifier(stage)
+        print("--------- GradientBoostingClassifier ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__gradient_boosting_classifier(stage)
 
-        #print("--------- Ridge ---------")
-        #for stage in stages:
-        #    print(f"Stage: {stage}")
-        #    self.__ridge_classifier(stage)
+        print("--------- BaggingClassifier DTC ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__bagging_decision_tree_classifier(stage)
+
+        print("--------- LogisticRegression ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__logistic_regression_classifier(stage)
+
+        print("--------- LinearSVC ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__svm_linearSVC_classifier(stage)
+
+        print("--------- KNN ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__knn_classifier(stage)
+
+        print("--------- Naive Bayes ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__naive_bayes_classifier(stage)
+
+        print("--------- Ridge ---------")
+        for stage in stages:
+            print(f"Stage: {stage}")
+            self.__ridge_classifier(stage)
 
         print("--------- Decision Tree ---------")
         for stage in stages:
@@ -587,15 +966,14 @@ class BinaryClassification:
         for stage in stages:
             print(f"Stage: {stage}")
             self.__random_forest_classifier(stage)
-    
-
-
 
 if __name__ == "__main__":
     teste = BinaryClassification(
         "./Features/0N1_100_100_noNaN_3000.csv", #train
-        "./Features/0N2_100_100_noNaN_3000.csv", #test
-        "stage"
+        #"./Features/012N1_100_100_noNaN_3000.csv", #train
+        "./Features/1N2_100_100_noNaN_3000.csv", #test
+        "stage",
+        #pz_oz=False
     )
     
     teste.test_parameters()
