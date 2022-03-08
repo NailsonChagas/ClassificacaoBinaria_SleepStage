@@ -688,7 +688,7 @@ class BinaryClassification:
         dual = [True, False]
         C = [1.0, 1.5, 2.0]
         fit_intercept = [True, False]
-        solver = ["newton-cg", "lbfgs", "liblinear", "sag", "lbfgs"]
+        solver = ['liblinear', 'newton-cg', 'lbfgs', 'sag', 'saga']
 
         dataframes_train = {
             "awake": self.train_awake, 
@@ -727,7 +727,7 @@ class BinaryClassification:
                                     dual = d,
                                     C = c,
                                     fit_intercept = f,
-                                    solver=solver,
+                                    solver=s,
                                 )
                                 classifier.fit(X_train, y_train)
                                 scores = cross_val_score(classifier, X_test, y_test, cv = 10, n_jobs = njobs)
@@ -735,11 +735,12 @@ class BinaryClassification:
                                 fim = time.time()
 
                                 result = {
+                                    "stage": stage,
                                     "penalty": p,
                                     "dual":d,
                                     "C":c,
                                     "fit_intercept":f,
-                                    "solver": solver,        
+                                    "solver": s,        
                                     "accuracy(%)": (scores.mean() * 100),
                                     "score_standard_deviation(%)": (scores.std() * 100),
                                     "tempo(s)": fim - inicio
@@ -763,7 +764,7 @@ class BinaryClassification:
         n_neighbors = [3, 5, 10, 20, 40, 80, 160]
         weights = ['uniform', 'distance']
         leaf_size = [15, 30, 60, 120]
-        p = [1, 2]
+        p = [2]#p = [1, 2]
 
         dataframes_train = {
             "awake": self.train_awake, 
@@ -789,8 +790,10 @@ class BinaryClassification:
         for n in n_neighbors:
             for w in weights:
                 for l in leaf_size:
-                    for p in p:
+                    for _p in p:
                         inicio = time.time()
+                        print(f"Iteração: {cont}")
+                        cont += 1
 
                         try:
 
@@ -798,7 +801,7 @@ class BinaryClassification:
                                 n_neighbors = n,
                                 weights = w,
                                 leaf_size = l,
-                                p = p
+                                p = _p
                             )
 
                             classifier.fit(X_train, y_train)
@@ -811,7 +814,7 @@ class BinaryClassification:
                                 "n_neighbors": n,
                                 "weights": w,   
                                 "leaf_size": l,
-                                "p": p,     
+                                "p": _p,     
                                 "accuracy(%)": (scores.mean() * 100),
                                 "score_standard_deviation(%)": (scores.std() * 100),
                                 "tempo(s)": fim - inicio
@@ -836,7 +839,7 @@ class BinaryClassification:
         dual = [True, False]
         C = [1.0, 1.5, 2.0]
         fit_intercept = [True, False]
-        max_iter = [1000, 2000, 4000, 8000]
+        max_iter = [16000, 32000, 64000, 128000]
 
         dataframes_train = {
             "awake": self.train_awake, 
@@ -922,50 +925,50 @@ class BinaryClassification:
             "stage5"
         ]   
 
-        print("--------- GradientBoostingClassifier ---------")
-        for stage in stages:
-            print(f"Stage: {stage}")
-            self.__gradient_boosting_classifier(stage)
+        #print("--------- KNN ---------")
+        #for stage in stages:
+        #    print(f"Stage: {stage}")
+        #    self.__knn_classifier(stage)
 
-        print("--------- BaggingClassifier DTC ---------")
-        for stage in stages:
-            print(f"Stage: {stage}")
-            self.__bagging_decision_tree_classifier(stage)
+        #print("--------- Naive Bayes ---------")
+        #for stage in stages:
+        #    print(f"Stage: {stage}")
+        #    self.__naive_bayes_classifier(stage)
 
-        print("--------- LogisticRegression ---------")
-        for stage in stages:
-            print(f"Stage: {stage}")
-            self.__logistic_regression_classifier(stage)
+        #print("--------- Ridge ---------")
+        #for stage in stages:
+        #    print(f"Stage: {stage}")
+        #    self.__ridge_classifier(stage)
 
+        #print("--------- Decision Tree ---------")
+        #for stage in stages:
+        #    print(f"Stage: {stage}")
+        #    self.__decision_tree_classifier(stage)
+
+        #print("--------- Random Forest ---------")
+        #for stage in stages:
+        #    print(f"Stage: {stage}")
+        #    self.__random_forest_classifier(stage)
+
+        #print("--------- LogisticRegression ---------")
+        #for stage in stages:
+        #    print(f"Stage: {stage}")
+        #    self.__logistic_regression_classifier(stage)
+        
         print("--------- LinearSVC ---------")
         for stage in stages:
             print(f"Stage: {stage}")
             self.__svm_linearSVC_classifier(stage)
-
-        print("--------- KNN ---------")
+        
+        print("--------- BaggingClassifier DTC ---------")
         for stage in stages:
             print(f"Stage: {stage}")
-            self.__knn_classifier(stage)
-
-        print("--------- Naive Bayes ---------")
+            self.__bagging_decision_tree_classifier(stage)
+        
+        print("--------- GradientBoostingClassifier ---------")
         for stage in stages:
             print(f"Stage: {stage}")
-            self.__naive_bayes_classifier(stage)
-
-        print("--------- Ridge ---------")
-        for stage in stages:
-            print(f"Stage: {stage}")
-            self.__ridge_classifier(stage)
-
-        print("--------- Decision Tree ---------")
-        for stage in stages:
-            print(f"Stage: {stage}")
-            self.__decision_tree_classifier(stage)
-
-        print("--------- Random Forest ---------")
-        for stage in stages:
-            print(f"Stage: {stage}")
-            self.__random_forest_classifier(stage)
+            self.__gradient_boosting_classifier(stage)
 
 if __name__ == "__main__":
     teste = BinaryClassification(
@@ -973,7 +976,7 @@ if __name__ == "__main__":
         #"./Features/012N1_100_100_noNaN_3000.csv", #train
         "./Features/1N2_100_100_noNaN_3000.csv", #test
         "stage",
-        #pz_oz=False
+        pz_oz=False
     )
     
     teste.test_parameters()

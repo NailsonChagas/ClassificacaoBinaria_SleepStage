@@ -45,8 +45,4 @@ def remove_nan(ini:int = 0, end:int = 83):
             errors.append(e)
     print(errors)
     
-aux = Subject(5)
-aux.get_second_night().extract_features()
-aux.get_second_night().remove_NaN_colums()
-
 extract_features_in_range(6, 83)
