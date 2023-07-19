@@ -18,14 +18,15 @@ Curso: Engenharia de Computação.
     <li>Testando classificadores no tipo neighbors e ensemble</li>
     <li>Pontuação dos classificadores salvos na pasta "./Scores"</li>
     <li>Implementação do balanceamento dos dataframes</li>
-</ul>
-
-## A Fazer
-<ul>
     <li>Implementar classificação binária</li>
     <li>Comparar com multiclasse</li>
     <li>Agrupar amostras por idade</li>
     <li>Comparar com as classificações feitas com uma unica amostra</li>
+</ul>
+
+## A Fazer
+<ul>
+    
     
 </ul>
 
